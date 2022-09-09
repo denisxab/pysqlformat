@@ -21,7 +21,6 @@ class BaseParse:
         ...
 
 
-        
 class XlsxParse(BaseParse):
 
     @staticmethod

@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 import sys
+from unittest.util import strclass
 
 
 sys.path.insert(0,Path(__file__).parent.parent.__str__())
@@ -304,6 +305,60 @@ class SQLFormatter:
         res = re.sub('(?:as ){2,}','as ',res)
         return res
 
+    def Format_CASE(text:str)->str:
+        """
+        
+        Форматировать CASE
+        
+        ::IN::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+        
+        
+        ,u.fullname uname
+        ,i.orderno numdoc
+        ,iif(ir.ir>0,ir.irname,
+                trim(case i.paycode
+                        when 1 then 'Оплата лечения!' when 2 then 'Внесение аванса'
+                                when 3 then 'Оплата долга' when 5 then 'Возврат личного аванса'
+                        when 6 then 'Выдача денег из кассы'  end)) text
+        ,iif(i.paycode in (1,2,3        
+        
+        
+        ::OUT::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+        
+        ,u.fullname uname
+        ,i.orderno numdoc
+        ,iif(ir.ir>0,ir.irname,
+                trim(case i.paycode                        
+                        when 1 then 'Оплата лечения!' 
+                        when 2 then 'Внесение аванса'                                
+                        when 3 then 'Оплата долга' 
+                        when 5 then 'Возврат личного аванса'                        
+                        when 6 then 'Выдача денег из кассы'  
+                     end)) text
+        ,iif(i.paycode in (1,2,3        
+        
+        
+        """
+        
+        def _self(m:re.Match)->str:
+            NL = '\n' 
+            text  = m.group(0)
+            # Получаем оступы
+            сколько_отступов = re.search('([\t ]+)when',text).group(1)
+            # Получаем все WHEN _ THEN           
+            m2 = re.search("case (?P<case>(?:.\s*(?!when))+[\w\W])(?P<when>(when((?:.\s*(?!then)))+[\w\W]then((?:.\s*(?!when))+)[\w\W])+)end",text)
+            # Перебераем элементы WHEN _ THEN
+            pt2 = re.compile("when(?P<when>(?:.\s*(?!then))+[\w\W])then(?P<then>(?:.\s*(?!when))+[\w\W])")
+            # Форматируем WHEN _ THEN
+            res2='\n'.join(
+                f"{сколько_отступов}when{x['when'].replace(NL,'')}then{x['then'].replace(NL,'')}" 
+                for x in pt2.finditer(m2['when'])
+            )
+            # Формируем ответ
+            return f"""case {m2['case'].replace(NL,'')}\n{res2}\n{сколько_отступов[:-3]}end"""
+        
+        res =  re.sub("case(?:.\s*(?!end))+[\w\W]end",_self,text)
+        return res
 
 if __name__ == '__main__':
     pat = Path('sql\in_sql.sql')
@@ -311,7 +366,7 @@ if __name__ == '__main__':
     
     #############################################
     text= pat.read_text(encoding=get_encoding(str(pat)))
-    res= SQLFormatter.Поставить_Переносы_Перед_Запятой(text)
+    res= SQLFormatter.Format_CASE(text)
     
     # res = text#SQLFormatter.sub_space(text)
     # res = SQLFormatter.пренос_для_скобок(res)
