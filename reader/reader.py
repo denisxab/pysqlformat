@@ -1,5 +1,6 @@
 from abc import abstractstaticmethod
 from pathlib import Path
+import sys
 from typing import Optional
 
 import chardet
@@ -9,19 +10,16 @@ from xlrd import Book, open_workbook
 from xlrd.sheet import Sheet
 
 
+sys.path.insert(0,Path(__file__).parent.parent.__str__())
+from base import get_encoding
+
+
 class BaseParse:
     
     @abstractstaticmethod
     def toSQL(path: str, template: str, *args,**kwargs):
         ...
 
-    def get_encoding(path:str)->str:
-        """
-        Получить кодировку файла, чтобы его можно было коректно прочитать
-        """
-
-        
-        return chardet.detect(Path(path).read_bytes()).get('encoding')
 
         
 class XlsxParse(BaseParse):
@@ -117,7 +115,7 @@ class DbfPasre(BaseParse):
         res:list[str] = []
         dargs:dict[str,str] = {}
         # Обрабатываем DBF файл по строчно
-        for record in DBF(path,encoding=BaseParse.get_encoding(path)):
+        for record in DBF(path,encoding=get_encoding(path)):
             # Работа со строками
             for x in args:
                 # Экранируем одинарные кавычки, для SQL команд
