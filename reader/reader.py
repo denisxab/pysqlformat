@@ -1,43 +1,52 @@
+import sys
+import typing
 from abc import abstractstaticmethod
 from pathlib import Path
-import sys
-from typing import Optional
 
-import chardet
+sys.path.insert(0, Path(__file__).parent.parent.__str__())
+from base import get_encoding
+# pip install dbfread==2.0.7
 from dbfread import DBF
-# pip install xlrd==1.2.0
 from xlrd import Book, open_workbook
+# pip install xlrd==1.2.0
 from xlrd.sheet import Sheet
 
 
-sys.path.insert(0,Path(__file__).parent.parent.__str__())
-from base import get_encoding
-
-
 class BaseParse:
-    
+
     @abstractstaticmethod
-    def toSQL(path: str, template: str, *args,**kwargs):
+    def goParse(path: str, template: str, **kwargs):
         ...
 
+    def escaSql(text:str):
+        """
+        Экранирование текста для SQL
+        """
+        return text.replace("'", "''")
 
 class XlsxParse(BaseParse):
 
     @staticmethod
-    def toSQL(path: str, template: str, sheet=0, out_path: Optional[str] = None):
+    def goParse(path: str, template: str, sheet=0, esce_call:typing.Callable = BaseParse.escaSql):
         """
 
-        Конвертировать данный из XLSX файл в SQL команду
+        Конвертировать данный из XLSX файл в шаблон
+
+
+        Получить данные из `xlsx` файла по пути `path`. Первая строка этого файла будут считаться заголовками, следующие строки
+        будут считаться как обычные данные. Вы можете обращаться к данным через шаблон `template`, в котором нужно указать имя заголовка.
+
 
         :param path: Путь к файлу
-        :param template: Шаблон построения SQL команды
+        :param template: Шаблон построения ответа `insert into Таблиц value ({ИмяСтолбца_1},{ИмяСтолбца_N})`
         :param sheet: Номер листа с которого читать
         :param out_path: Путь к файлу в который нужно записать ответ
+        :param esce_call: Функция для экранирование значения 
+        -------------------------------------------------------------------------------------------
+        for x in XlsxParse.goParse(r'Файл.xlsx', 'select * from dual where id = {ID}'):
+            print(x)
+        -------------------------------------------------------------------------------------------
 
-        -------------------------------------------------------------------------------------------
-        res = XlsxParse.toSQL("s.xlsx", 'insert into clients (id,uuid,count) value ({a},{a},{c});')
-        -------------------------------------------------------------------------------------------
-        
         """
 
         # Выбрать файл
@@ -53,85 +62,67 @@ class XlsxParse(BaseParse):
         """
         # Список заголовков
         head: list[str] = [worksheet.cell_value(0, col) for col in range(worksheet.ncols)]
-        # Для хранения ответа
-        result: list[str] = []
         # Хранения временного результата {ИмяСтолба:ЗначениеСтолбца}
         tmp: dict[str, str]
         for row in range(1, worksheet.nrows):
-            tmp = {
-                # Экранируем одинарные кавычки для исполнения SQL команд
-                name: str(worksheet.cell_value(row, col)).replace("'", "''")
-                for name, col in zip(head, range(1, worksheet.ncols))
-            }
+            tmp = {name: esce_call(str(worksheet.cell_value(row, col))) for name, col in zip(head, range(0, worksheet.ncols))}
             try:
                 # Формируем ответ на основе переданной шаблонной строки
-                result.append(template.format(**tmp))
+                yield template.format(**tmp)
             except KeyError as e:
                 raise KeyError(f"{e}, Не найден столбец с указаны заголовком")
-        # Конвертируем ответ в строку через перенос строки
-        res2 = '\n'.join(result)
-        # Если передан файл в который нужно записать ответ
-        if out_path:
-            Path(out_path).write_text(res2)
-            return f"Записано в файл: {out_path}"
-        else:
-            return res2
+
 
 class DbfPasre(BaseParse):
 
     class Record(object):
         """
         Класс для того чтобы можно было получать значение стобца через точку
-        
+
         :Использование:
-        
+
         for record in DBF(Путь, encoding=get_encoding(Путь), recfactory=Record):
             record.ИмяСтолбца
         """
+
         def __init__(self, items):
             for (name, value) in items:
                 setattr(self, name, value)
-        
-    @staticmethod
-    def toSQL(path:str,args:list[str],template:str):
-        """
-        Чтение DBF файлов и конвертация их в sql запросы на запись
-        
-        ----------------------------------------------------------------------------------
-        path = r'SPRAV_LPU.DBF'
-        o_path = Path(f'{Path(path).stem }.sql')
-        res = base_parse_sql(
-            path,
-            ['ID_LPU','LPU_S_NAME','LPU_P_NAME'],
-            template='''INSERT INTO JPERSONS (JID,LPUCODE,SHORTNAME,JNAME,JNAME2, JPTCODE,KODTER,JCODE,LPU) VALUES (next value for  JP_GEN,'{ID_LPU}','{LPU_S_NAME}','{LPU_P_NAME}','{LPU_P_NAME}',5,78,'EIS_LOAD',1);'''
-        )
-        print(res)
-        o_path.write_text(res,encoding='utf-8')
-        ----------------------------------------------------------------------------------
-        
-        """
 
-        res:list[str] = []
-        dargs:dict[str,str] = {}
+    @staticmethod
+    def goParse(path: str, template: str, esce_call:typing.Callable = BaseParse.escaSql):
+        """
+        Чтение DBF файлов
+
+        Получить данные из `dbf` файла по пути `path`.Вы можете обращаться к данным через шаблон `template`, в котором нужно указать имя заголовка.
+
+        :param path: Путь к файлу
+        :param template: Шаблон построения ответа `insert into Таблиц value ({ИмяСтолбца_1},{ИмяСтолбца_N})`
+        :param esce_call: Функция для экранирование значения 
+
+        ----------------------------------------------------------------------------------
+        for x in DbfPasre.goParse(r'SPRAV_CC_DIRECTIONS.DBF', 'select * from dual where id = {ID_D_GROUP} ref = {CNT_MIN}'):
+            print(x)
+        ----------------------------------------------------------------------------------
+        """
+        # Хранения временного результата {ИмяСтолба:ЗначениеСтолбца}
+        tmp: dict[str, str]
         # Обрабатываем DBF файл по строчно
-        for record in DBF(path,encoding=get_encoding(path)):
+        for record in DBF(path, encoding=get_encoding(path)):
             # Работа со строками
-            for x in args:
-                # Экранируем одинарные кавычки, для SQL команд
-                dargs[x]=str(record[x]).replace("'","''") 
-            # Формируем строку по переданому шаблону
-            res.append(template.format(**dargs))
-        # Переводим список в строку через перенос строки
-        return '\n'.join(res)         
-             
-             
+            tmp = {k: esce_call(str(v)) for k, v in dict(record).items()}
+            try:
+                # Формируем ответ на основе переданной шаблонной строки
+                yield template.format(**tmp)
+            except KeyError as e:
+                raise KeyError(f"{e}, Не найден столбец с указаны заголовком")
+
+
+
 if __name__ == '__main__':
-    path = r'SPRAV_LPU.DBF'
-    o_path = Path(f'{Path(path).stem }.sql')
-    res = DbfPasre.toSQL(
-        path,
-        ['ID_LPU','LPU_S_NAME','LPU_P_NAME'],
-        template='''INSERT INTO JPERSONS (JID,LPUCODE,SHORTNAME,JNAME,JNAME2, JPTCODE,KODTER,JCODE,LPU) VALUES (next value for  JP_GEN,'{ID_LPU}','{LPU_S_NAME}','{LPU_P_NAME}','{LPU_P_NAME}',5,78,'EIS_LOAD',1);'''
-    )
-    print(res)
-    o_path.write_text(res,encoding='utf-8')
+
+    for x in XlsxParse.goParse(r'w2.xlsx', 'select * from dual where id = {ID}'):
+        print(x)
+    
+    # for x in DbfPasre.goParse(r'SPRAV_CC_DIRECTIONS.DBF', 'select * from dual where id ={ID_D_GROUP} {CNT_MIN}'):
+    #     print(x)

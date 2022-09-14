@@ -1,12 +1,12 @@
-        ,u.fullname uname
-        ,i.orderno numdoc
-        ,iif(ir.ir>0,ir.irname,
-                trim(case i.paycode                        
-                        when 1 then 'Оплата лечения!' 
-                        when 2 then 'Внесение аванса'                                
-                        when 3 then 'Оплата долга' 
-                        when 5 then 'Возврат личного аван!са'                        
-                        when 6 then 'Выдача денег из кассы'  
-                     end)) text
-        ,iif(i.paycode in (1,2,3        
-        
+    SCHID                    --  id услуги
+    ,KODOPER                 -- код услуги
+    ,SCHNAME                 -- имя услуг
+    ,SNAME                   -- специальность услуг
+    ,count(SCHID) as s_count -- количество услуг 
+    ,sum(COST_US) as s_sum   -- сумма услуг
+                           ----- DEBUG ----------------------------
+    ,list(PRICE_P_RUB) as PRICE_P_RUB
+    ,list(SCOUNT) as SCOUNT
+    ,list(HOW_GET_WSHEMA) as HOW_GET_WSHEMA
+    ,list(IN_DATE) as IN_DATE
+    ,list(FULLNAME) as FULLNAME
