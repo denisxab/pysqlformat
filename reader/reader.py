@@ -15,10 +15,10 @@ from xlrd.sheet import Sheet
 class BaseParse:
 
     @abstractstaticmethod
-    def goParse(path: str, template: str, **kwargs):
+    def goParse(path: str, template: str, **kwargs)->typing.Iterator[str]:
         ...
 
-    def escaSql(text:str):
+    def escaSql(text:str)->str:
         """
         Экранирование текста для SQL
         """
@@ -27,7 +27,7 @@ class BaseParse:
 class XlsxParse(BaseParse):
 
     @staticmethod
-    def goParse(path: str, template: str, sheet=0, esce_call:typing.Callable = BaseParse.escaSql):
+    def goParse(path: str, template: str, sheet=0, esce_call:typing.Callable = BaseParse.escaSql)->typing.Iterator[str]:
         """
 
         Конвертировать данный из XLSX файл в шаблон
@@ -90,7 +90,7 @@ class DbfPasre(BaseParse):
                 setattr(self, name, value)
 
     @staticmethod
-    def goParse(path: str, template: str, esce_call:typing.Callable = BaseParse.escaSql):
+    def goParse(path: str, template: str, esce_call:typing.Callable = BaseParse.escaSql)->typing.Iterator[str] :
         """
         Чтение DBF файлов
 
@@ -121,8 +121,10 @@ class DbfPasre(BaseParse):
 
 if __name__ == '__main__':
 
-    for x in XlsxParse.goParse(r'w2.xlsx', 'select * from dual where id = {ID}'):
-        print(x)
+    # for x in XlsxParse.goParse(r'w2.xlsx', 'select * from dual where id = {ID}'):
+    #     print(x)
     
     # for x in DbfPasre.goParse(r'SPRAV_CC_DIRECTIONS.DBF', 'select * from dual where id ={ID_D_GROUP} {CNT_MIN}'):
     #     print(x)
+
+    ...
